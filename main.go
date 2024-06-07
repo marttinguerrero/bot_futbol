@@ -32,6 +32,7 @@ func run() {
 	var partido struct {
 		Cancha  string
 		DiaHora time.Time
+		Precio  string
 	}
 
 	updates := bot.GetUpdatesChan(u)
@@ -65,7 +66,7 @@ func run() {
 					if partido.Cancha == "" {
 						msg.Text = "Todavía no hay un partido creado"
 					} else {
-						msg.Text = "Cancha: " + partido.Cancha + "\nDía y hora: " + partido.DiaHora.Format(layout) + "\nJugadores: " + strings.Join(lista, ", ")
+						msg.Text = "Cancha: " + partido.Cancha + "\nPrecio: " + partido.Precio + "$\nDía y hora: " + partido.DiaHora.Format(layout) + "\nJugadores: " + strings.Join(lista, ", ")
 					}
 				case "estado":
 					msg.Text = "Estoy funcionando"
@@ -85,7 +86,7 @@ func run() {
 				}
 				partido.DiaHora = diaHora
 
-				msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Partido creado:\nCancha: "+partido.Cancha+"\nDía y hora: "+partido.DiaHora.Format(layout)+"\nJugadores: "+strings.Join(lista, ", "))
+				msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Partido creado:\nCancha: "+partido.Cancha+"\nPrecio: "+partido.Precio+"$\nDía y hora: "+partido.DiaHora.Format(layout)+"\nJugadores: "+strings.Join(lista, ", "))
 				bot.Send(msg)
 			}
 		} else if update.CallbackQuery != nil {
@@ -102,6 +103,14 @@ func run() {
 			}
 
 			msg.Text = "Has elegido " + partido.Cancha + ". ¿Qué día y a qué hora? (formato: DD-MM-YYYY HH:MM)"
+			if partido.Cancha == "Fútbol 5" {
+				partido.Precio = "10000"
+			} else if partido.Cancha == "Fútbol 7" {
+				partido.Precio = "14000"
+			} else if partido.Cancha == "Fútbol 8" {
+				partido.Precio = "16000"
+			}
+
 			msg.ReplyMarkup = tgbotapi.ForceReply{ForceReply: true}
 			if _, err := bot.Send(msg); err != nil {
 				log.Panic(err)
