@@ -17,6 +17,11 @@ type Partido struct {
 	Precio  string
 }
 
+type Jugador struct {
+	Nombre string
+	Pago   bool
+}
+
 func main() {
 	run()
 }
@@ -39,7 +44,7 @@ func run() {
 	u.Timeout = 60
 
 	updates := bot.GetUpdatesChan(u)
-	lista := []string{}
+	lista := []Jugador{}
 	partido := Partido{}
 
 	for update := range updates {
@@ -47,7 +52,7 @@ func run() {
 	}
 }
 
-func manejo_update(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]string, partido *Partido) {
+func manejo_update(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]Jugador, partido *Partido) {
 	if update.Message != nil {
 		manejo_mensaje(bot, update, lista, partido)
 	} else if update.CallbackQuery != nil {
@@ -55,7 +60,7 @@ func manejo_update(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]string
 	}
 }
 
-func manejo_mensaje(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]string, partido *Partido) {
+func manejo_mensaje(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]Jugador, partido *Partido) {
 	if update.Message.IsCommand() {
 		manejo_comandos(bot, update, lista, partido)
 	} else if update.Message.ReplyToMessage != nil && strings.Contains(update.Message.ReplyToMessage.Text, "¿Qué día y a qué hora?") {
@@ -63,17 +68,17 @@ func manejo_mensaje(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]strin
 	}
 }
 
-func manejo_comandos(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]string, partido *Partido) {
+func manejo_comandos(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]Jugador, partido *Partido) {
 	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
 	switch update.Message.Command() {
 	case "sumo":
-		*lista = append(*lista, update.Message.From.FirstName)
-		msg.Text = "Jugadores que suman al partido por ahora: " + strings.Join(*lista, ", ")
+		*lista = append(*lista, Jugador{Nombre: update.Message.From.FirstName, Pago: false})
+		msg.Text = "Jugadores que suman al partido por ahora: " + imprimir_nombres(*lista)
 	case "bajar":
 		*lista = bajar_jugador(*lista, update.Message.From.FirstName)
 		msg.Text = "Se borró de la lista de jugadores a " + update.Message.From.FirstName
 	case "jugadores":
-		msg.Text = "Los jugadores que van al partido por ahora son: " + strings.Join(*lista, ", ")
+		msg.Text = "Los jugadores que van al partido por ahora son: " + imprimir_nombres(*lista)
 	case "crearpartido":
 		msg.Text = "¿Qué tipo de cancha querés?"
 		msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
@@ -87,7 +92,7 @@ func manejo_comandos(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]stri
 		if partido.Cancha == "" {
 			msg.Text = "Todavía no hay un partido creado"
 		} else {
-			msg.Text = "Cancha: " + partido.Cancha + "\nPrecio: " + partido.Precio + "$\nDía y hora: " + partido.DiaHora.Format(layout) + "\nJugadores: " + strings.Join(*lista, ", ")
+			msg.Text = "Cancha: " + partido.Cancha + "\nPrecio: " + partido.Precio + "$\nDía y hora: " + partido.DiaHora.Format(layout) + "\nJugadores: " + imprimir_nombres(*lista)
 		}
 	case "estado":
 		msg.Text = "Estoy funcionando"
@@ -100,7 +105,7 @@ func manejo_comandos(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]stri
 	}
 }
 
-func manejo_fecha(bot *tgbotapi.BotAPI, update tgbotapi.Update, partido *Partido, lista *[]string) {
+func manejo_fecha(bot *tgbotapi.BotAPI, update tgbotapi.Update, partido *Partido, lista *[]Jugador) {
 	diaHora, err := time.Parse(layout, update.Message.Text)
 	if err != nil {
 		msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Formato de fecha y hora incorrecto. Por favor, usa el formato DD-MM-YYYY HH:MM.")
@@ -108,11 +113,11 @@ func manejo_fecha(bot *tgbotapi.BotAPI, update tgbotapi.Update, partido *Partido
 		return
 	}
 	partido.DiaHora = diaHora
-	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Partido creado:\nCancha: "+partido.Cancha+"\nPrecio: "+partido.Precio+"$\nDía y hora: "+partido.DiaHora.Format(layout)+"\nJugadores: "+strings.Join(*lista, ", "))
+	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Partido creado:\nCancha: "+partido.Cancha+"\nPrecio: "+partido.Precio+"$\nDía y hora: "+partido.DiaHora.Format(layout)+"\nJugadores: "+imprimir_nombres(*lista))
 	bot.Send(msg)
 }
 
-func manejo_callback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery, lista *[]string, partido *Partido) {
+func manejo_callback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery, lista *[]Jugador, partido *Partido) {
 	msg := tgbotapi.NewMessage(callback.Message.Chat.ID, "")
 
 	canchaElegida := ""
@@ -153,10 +158,10 @@ func manejo_callback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery, lis
 	}
 }
 
-func bajar_jugador(lista []string, element string) []string {
+func bajar_jugador(lista []Jugador, nombre string) []Jugador {
 	index := -1
 	for i, v := range lista {
-		if v == element {
+		if v.Nombre == nombre {
 			index = i
 			break
 		}
@@ -165,4 +170,12 @@ func bajar_jugador(lista []string, element string) []string {
 		return lista
 	}
 	return append(lista[:index], lista[index+1:]...)
+}
+
+func imprimir_nombres(lista []Jugador) string {
+	nombres := []string{}
+	for _, jugador := range lista {
+		nombres = append(nombres, jugador.Nombre)
+	}
+	return strings.Join(nombres, ", ")
 }
