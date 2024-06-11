@@ -101,8 +101,6 @@ func manejo_comandos(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]Juga
 			msg.Text = "Primero debes crear un partido con el comando /crearpartido"
 		} else {
 			*lista = append(*lista, Jugador{Nombre: update.Message.From.FirstName, Pago: false})
-			// fmt.Println("Hora actual:", extraerNumeros(time.Now()))
-			// fmt.Println("Hora partido: ", extraerNumeros(partido.DiaHora))
 			msg.Text = "Jugadores que suman al partido por ahora: " + imprimir_nombres(*lista)
 		}
 	case "sumoa":
@@ -234,12 +232,9 @@ func imprimir_nombres(lista []Jugador) string {
 }
 
 func obtenerNumeros(hora time.Time) string {
-	// Convertir la hora a una cadena con formato específico
 	cadenaHora := hora.Format("02-01-2006 15:04:05")
 
-	// Eliminar todos los caracteres que no sean números
 	cadenaSoloNumeros := strings.Map(func(r rune) rune {
-		// Filtrar solo los caracteres que son números
 		if r >= '0' && r <= '9' {
 			return r
 		}
