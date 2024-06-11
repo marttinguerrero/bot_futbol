@@ -12,9 +12,13 @@ import (
 const layout = "02-01-2006 15:04"
 
 type Partido struct {
-	Cancha  string
-	DiaHora time.Time
-	Precio  string
+	Id        int
+	Cancha    string
+	DiaHora   time.Time
+	Precio    string
+	Ubicacion string
+	Creado    bool
+	Paso      int
 }
 
 type Jugador struct {
@@ -48,8 +52,24 @@ func run() {
 	partido := Partido{}
 
 	for update := range updates {
+		hora_actual := obtenerNumeros(time.Now())
+		hora_partido := obtenerNumeros(partido.DiaHora)
+
+		if partido.Creado && hora_partido < hora_actual {
+			eliminarPartido(bot, update.Message.Chat.ID, &partido)
+			partido = Partido{}
+			continue
+		}
 		manejo_update(bot, update, &lista, &partido)
 	}
+
+}
+
+func eliminarPartido(bot *tgbotapi.BotAPI, chatID int64, partido *Partido) {
+	partido.Creado = false
+	partido.Paso = 0
+	msg := tgbotapi.NewMessage(chatID, "El partido ha finalizado. ¡Es hora de crear otro partido!")
+	bot.Send(msg)
 }
 
 func manejo_update(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]Jugador, partido *Partido) {
@@ -63,8 +83,13 @@ func manejo_update(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]Jugado
 func manejo_mensaje(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]Jugador, partido *Partido) {
 	if update.Message.IsCommand() {
 		manejo_comandos(bot, update, lista, partido)
-	} else if update.Message.ReplyToMessage != nil && strings.Contains(update.Message.ReplyToMessage.Text, "¿Qué día y a qué hora?") {
-		manejo_fecha(bot, update, partido, lista)
+	} else if update.Message.ReplyToMessage != nil {
+		switch partido.Paso {
+		case 1:
+			manejo_ubicacion(bot, update, partido, lista)
+		case 2:
+			manejo_fecha(bot, update, partido, lista)
+		}
 	}
 }
 
@@ -72,27 +97,49 @@ func manejo_comandos(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]Juga
 	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
 	switch update.Message.Command() {
 	case "sumo":
-		*lista = append(*lista, Jugador{Nombre: update.Message.From.FirstName, Pago: false})
-		msg.Text = "Jugadores que suman al partido por ahora: " + imprimir_nombres(*lista)
+		if !partido.Creado {
+			msg.Text = "Primero debes crear un partido con el comando /crearpartido"
+		} else {
+			*lista = append(*lista, Jugador{Nombre: update.Message.From.FirstName, Pago: false})
+			// fmt.Println("Hora actual:", extraerNumeros(time.Now()))
+			// fmt.Println("Hora partido: ", extraerNumeros(partido.DiaHora))
+			msg.Text = "Jugadores que suman al partido por ahora: " + imprimir_nombres(*lista)
+		}
+	case "sumoa":
+		if !partido.Creado {
+			msg.Text = "Primero debes crear un partido con el comando /crearpartido"
+		} else {
+			parts := strings.SplitN(update.Message.Text, " ", 2)
+			if len(parts) == 2 {
+				nombreAmigo := parts[1]
+				*lista = append(*lista, Jugador{Nombre: nombreAmigo, Pago: false})
+				msg.Text = "Se agregó a " + nombreAmigo + " a la lista de jugadores.\nJugadores que suman al partido por ahora: " + imprimir_nombres(*lista)
+			} else {
+				msg.Text = "Por favor, proporciona un nombre después del comando /sumoa."
+			}
+		}
 	case "bajar":
 		*lista = bajar_jugador(*lista, update.Message.From.FirstName)
 		msg.Text = "Se borró de la lista de jugadores a " + update.Message.From.FirstName
 	case "jugadores":
-		msg.Text = "Los jugadores que van al partido por ahora son: " + imprimir_nombres(*lista)
-	case "crearpartido":
-		msg.Text = "¿Qué tipo de cancha querés?"
-		msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("Fútbol 5", "cancha_futbol5"),
-				tgbotapi.NewInlineKeyboardButtonData("Fútbol 7", "cancha_futbol7"),
-				tgbotapi.NewInlineKeyboardButtonData("Fútbol 8", "cancha_futbol8"),
-			),
-		)
-	case "partido":
-		if partido.Cancha == "" {
+		if !partido.Creado {
 			msg.Text = "Todavía no hay un partido creado"
 		} else {
-			msg.Text = "Cancha: " + partido.Cancha + "\nPrecio: " + partido.Precio + "$\nDía y hora: " + partido.DiaHora.Format(layout) + "\nJugadores: " + imprimir_nombres(*lista)
+			msg.Text = "Los jugadores que van al partido por ahora son: " + imprimir_nombres(*lista)
+		}
+	case "crearpartido":
+		if partido.Creado {
+			msg.Text = "Ya hay un partido creado. No puedes crear otro partido."
+		} else {
+			partido.Paso = 1
+			msg.Text = "¿Dónde querés jugar?"
+			msg.ReplyMarkup = tgbotapi.ForceReply{ForceReply: true}
+		}
+	case "partido":
+		if !partido.Creado {
+			msg.Text = "Todavía no hay un partido creado"
+		} else {
+			msg.Text = "Cancha: " + partido.Cancha + "\nPrecio: " + partido.Precio + "$\nDía y hora: " + partido.DiaHora.Format(layout) + "\nUbicación: " + partido.Ubicacion + "\nJugadores: " + imprimir_nombres(*lista)
 		}
 	case "estado":
 		msg.Text = "Estoy funcionando"
@@ -105,6 +152,13 @@ func manejo_comandos(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]Juga
 	}
 }
 
+func manejo_ubicacion(bot *tgbotapi.BotAPI, update tgbotapi.Update, partido *Partido, lista *[]Jugador) {
+	partido.Ubicacion = update.Message.Text
+	partido.Paso = 2
+	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "¿Qué día y a qué hora? (formato: DD-MM-YYYY HH:MM)")
+	msg.ReplyMarkup = tgbotapi.ForceReply{ForceReply: true}
+	bot.Send(msg)
+}
 func manejo_fecha(bot *tgbotapi.BotAPI, update tgbotapi.Update, partido *Partido, lista *[]Jugador) {
 	diaHora, err := time.Parse(layout, update.Message.Text)
 	if err != nil {
@@ -113,40 +167,39 @@ func manejo_fecha(bot *tgbotapi.BotAPI, update tgbotapi.Update, partido *Partido
 		return
 	}
 	partido.DiaHora = diaHora
-	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Partido creado:\nCancha: "+partido.Cancha+"\nPrecio: "+partido.Precio+"$\nDía y hora: "+partido.DiaHora.Format(layout)+"\nJugadores: "+imprimir_nombres(*lista))
+	partido.Paso = 3
+	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "¿Qué tipo de cancha querés?")
+	msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("Fútbol 5", "cancha_futbol5"),
+			tgbotapi.NewInlineKeyboardButtonData("Fútbol 7", "cancha_futbol7"),
+			tgbotapi.NewInlineKeyboardButtonData("Fútbol 8", "cancha_futbol8"),
+		),
+	)
 	bot.Send(msg)
 }
 
 func manejo_callback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery, lista *[]Jugador, partido *Partido) {
-	msg := tgbotapi.NewMessage(callback.Message.Chat.ID, "")
+	if partido.Paso != 3 {
+		return
+	}
 
-	canchaElegida := ""
-	jugadoresRequeridos := 0
-	precio := ""
+	msg := tgbotapi.NewMessage(callback.Message.Chat.ID, "")
 
 	switch callback.Data {
 	case "cancha_futbol5":
-		canchaElegida = "Fútbol 5"
-		jugadoresRequeridos = 10
-		precio = "10000"
+		partido.Cancha = "Fútbol 5"
+		partido.Precio = "10000"
 	case "cancha_futbol7":
-		canchaElegida = "Fútbol 7"
-		jugadoresRequeridos = 14
-		precio = "14000"
+		partido.Cancha = "Fútbol 7"
+		partido.Precio = "14000"
 	case "cancha_futbol8":
-		canchaElegida = "Fútbol 8"
-		jugadoresRequeridos = 16
-		precio = "16000"
+		partido.Cancha = "Fútbol 8"
+		partido.Precio = "16000"
 	}
 
-	if len(*lista) < jugadoresRequeridos {
-		msg.Text = "No hay suficientes jugadores para crear el partido de " + canchaElegida
-	} else {
-		partido.Cancha = canchaElegida
-		partido.Precio = precio
-		msg.Text = "Has elegido " + partido.Cancha + ". ¿Qué día y a qué hora? (formato: DD-MM-YYYY HH:MM)"
-		msg.ReplyMarkup = tgbotapi.ForceReply{ForceReply: true}
-	}
+	partido.Creado = true
+	msg.Text = "Partido creado:\nCancha: " + partido.Cancha + "\nPrecio: " + partido.Precio + "$\nDía y hora: " + partido.DiaHora.Format(layout) + "\nUbicación: " + partido.Ubicacion + "\nJugadores: " + imprimir_nombres(*lista)
 
 	if _, err := bot.Send(msg); err != nil {
 		log.Panic(err)
@@ -178,4 +231,20 @@ func imprimir_nombres(lista []Jugador) string {
 		nombres = append(nombres, jugador.Nombre)
 	}
 	return strings.Join(nombres, ", ")
+}
+
+func obtenerNumeros(hora time.Time) string {
+	// Convertir la hora a una cadena con formato específico
+	cadenaHora := hora.Format("02-01-2006 15:04:05")
+
+	// Eliminar todos los caracteres que no sean números
+	cadenaSoloNumeros := strings.Map(func(r rune) rune {
+		// Filtrar solo los caracteres que son números
+		if r >= '0' && r <= '9' {
+			return r
+		}
+		return -1
+	}, cadenaHora)
+
+	return cadenaSoloNumeros
 }
