@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -12,7 +13,7 @@ import (
 const layout = "02-01-2006 15:04"
 
 type Partido struct {
-	Id        int
+	ChatID    int64
 	Cancha    string
 	DiaHora   time.Time
 	Precio    string
@@ -51,25 +52,36 @@ func run() {
 	lista := []Jugador{}
 	partido := Partido{}
 
-	for update := range updates {
-		hora_actual := obtener_numeros(time.Now())
-		hora_partido := obtener_numeros(partido.DiaHora)
+	go verificarYEliminarPartidoVencido(bot, &partido)
 
-		if partido.Creado && hora_partido < hora_actual {
-			eliminarPartido(bot, update.Message.Chat.ID, &partido)
-			partido = Partido{}
-			continue
+	for update := range updates {
+		if update.Message != nil {
+			partido.ChatID = update.Message.Chat.ID
 		}
 		manejo_update(bot, update, &lista, &partido)
 	}
-
+}
+func verificarYEliminarPartidoVencido(bot *tgbotapi.BotAPI, partido *Partido) {
+	for {
+		hora_actual := obtener_numeros(time.Now())
+		hora_partido := obtener_numeros(partido.DiaHora)
+		if partido.Creado && hora_partido < hora_actual {
+			chatID := partido.ChatID
+			fmt.Println("Verificación: Eliminando partido vencido")
+			eliminar_partido(bot, chatID, partido)
+		}
+	}
 }
 
-func eliminarPartido(bot *tgbotapi.BotAPI, chatID int64, partido *Partido) {
+func eliminar_partido(bot *tgbotapi.BotAPI, chatID int64, partido *Partido) {
 	partido.Creado = false
 	partido.Paso = 0
-	msg := tgbotapi.NewMessage(chatID, "El partido ha finalizado. ¡Es hora de crear otro partido!")
-	bot.Send(msg)
+
+	msg := tgbotapi.NewMessage(chatID, "El partido ha finalizado, /crearpartido para crear el siguiente")
+	_, err := bot.Send(msg)
+	if err != nil {
+		fmt.Printf("Error al enviar mensaje: %v\n", err)
+	}
 }
 
 func manejo_update(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]Jugador, partido *Partido) {
