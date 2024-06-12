@@ -52,8 +52,8 @@ func run() {
 	partido := Partido{}
 
 	for update := range updates {
-		hora_actual := obtenerNumeros(time.Now())
-		hora_partido := obtenerNumeros(partido.DiaHora)
+		hora_actual := obtener_numeros(time.Now())
+		hora_partido := obtener_numeros(partido.DiaHora)
 
 		if partido.Creado && hora_partido < hora_actual {
 			eliminarPartido(bot, update.Message.Chat.ID, &partido)
@@ -119,6 +119,19 @@ func manejo_comandos(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]Juga
 	case "bajar":
 		*lista = bajar_jugador(*lista, update.Message.From.FirstName)
 		msg.Text = "Se borró de la lista de jugadores a " + update.Message.From.FirstName
+	case "bajoa":
+		if !partido.Creado {
+			msg.Text = "Primero debes crear un partido con el comando /crearpartido"
+		} else {
+			parts := strings.SplitN(update.Message.Text, " ", 2)
+			if len(parts) == 2 {
+				nombre_amigo := parts[1]
+				*lista = bajar_jugador(*lista, nombre_amigo)
+				msg.Text = "Se borró de la lista de jugadores a " + nombre_amigo
+			} else {
+				msg.Text = "Por favor, proporciona un nombre después del comando /bajoa."
+			}
+		}
 	case "jugadores":
 		if !partido.Creado {
 			msg.Text = "Todavía no hay un partido creado"
@@ -231,7 +244,7 @@ func imprimir_nombres(lista []Jugador) string {
 	return strings.Join(nombres, ", ")
 }
 
-func obtenerNumeros(hora time.Time) string {
+func obtener_numeros(hora time.Time) string {
 	cadenaHora := hora.Format("02-01-2006 15:04:05")
 
 	cadenaSoloNumeros := strings.Map(func(r rune) rune {
