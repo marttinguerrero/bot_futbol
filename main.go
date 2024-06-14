@@ -12,6 +12,14 @@ import (
 
 const layout = "02-01-2006 15:04"
 
+// ----
+type Equipos struct {
+	Oscuro []Jugador
+	Claro  []Jugador
+}
+
+//----
+
 type Partido struct {
 	ChatID    int64
 	Cancha    string
@@ -20,6 +28,8 @@ type Partido struct {
 	Ubicacion string
 	Creado    bool
 	Paso      int
+	//---
+	Equipos Equipos
 }
 
 type Jugador struct {
@@ -61,6 +71,34 @@ func run() {
 		manejo_update(bot, update, &lista, &partido)
 	}
 }
+
+// --------------------
+func asignarEquipos(lista []Jugador, jugadoresOscuro []string) (Equipos, error) {
+	equipoOscuro := []Jugador{}
+	equipoClaro := []Jugador{}
+	nombresOscuro := make(map[string]bool)
+
+	for _, nombre := range jugadoresOscuro {
+		nombresOscuro[strings.TrimSpace(nombre)] = true
+	}
+
+	for _, jugador := range lista {
+		if nombresOscuro[jugador.Nombre] {
+			equipoOscuro = append(equipoOscuro, jugador)
+		} else {
+			equipoClaro = append(equipoClaro, jugador)
+		}
+	}
+
+	if len(equipoOscuro) != 5 || len(equipoClaro) != 5 {
+		return Equipos{}, fmt.Errorf("los equipos deben tener exactamente 5 jugadores cada uno")
+	}
+
+	return Equipos{Oscuro: equipoOscuro, Claro: equipoClaro}, nil
+}
+
+//--------------
+
 func verificarYEliminarPartidoVencido(bot *tgbotapi.BotAPI, partido *Partido) {
 	for {
 		hora_actual := obtener_numeros(time.Now())
@@ -113,6 +151,13 @@ func manejo_comandos(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]Juga
 			msg.Text = "Primero debes crear un partido con el comando /crearpartido"
 		} else {
 			*lista = append(*lista, Jugador{Nombre: update.Message.From.FirstName, Pago: false})
+			//
+			for i := 0; i < 9; i++ {
+				nombre := fmt.Sprintf("Juan%d", i+1)
+				*lista = append(*lista, Jugador{Nombre: nombre, Pago: false})
+			}
+			//
+
 			msg.Text = "Jugadores que suman al partido por ahora: " + imprimir_nombres(*lista)
 		}
 	case "sumoa":
@@ -150,6 +195,71 @@ func manejo_comandos(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]Juga
 		} else {
 			msg.Text = "Los jugadores que van al partido por ahora son: " + imprimir_nombres(*lista)
 		}
+
+		//---------------------
+	case "equipoOscuro":
+		if !partido.Creado {
+			msg.Text = "Primero debes crear un partido con el comando /crearpartido"
+		} else {
+			partes := strings.SplitN(update.Message.Text, ":", 2)
+			if len(partes) == 2 {
+				jugadoresOscuro := strings.Split(partes[1], ",")
+				equipoOscuro := []Jugador{}
+				equipoClaro := []Jugador{}
+
+				nombresOscuro := make(map[string]bool)
+				for _, nombre := range jugadoresOscuro {
+					nombresOscuro[strings.TrimSpace(nombre)] = true
+				}
+
+				for _, jugador := range *lista {
+					if nombresOscuro[jugador.Nombre] {
+						equipoOscuro = append(equipoOscuro, jugador)
+					} else {
+						equipoClaro = append(equipoClaro, jugador)
+					}
+				}
+
+				partido.Equipos.Oscuro = equipoOscuro
+				partido.Equipos.Claro = equipoClaro
+
+				msg.Text = "Equipo Oscuro: " + imprimir_nombres(partido.Equipos.Oscuro) + "\nEquipo Claro: " + imprimir_nombres(partido.Equipos.Claro)
+			} else {
+				msg.Text = "Por favor, proporciona los nombres de los jugadores después del comando /equipoOscuro separados por comas."
+			}
+		}
+	case "equipoClaro":
+		if !partido.Creado {
+			msg.Text = "Primero debes crear un partido con el comando /crearpartido"
+		} else {
+			partes := strings.SplitN(update.Message.Text, ":", 2)
+			if len(partes) == 2 {
+				jugadoresClaro := strings.Split(partes[1], ",")
+				equipoOscuro := []Jugador{}
+				equipoClaro := []Jugador{}
+
+				nombresClaro := make(map[string]bool)
+				for _, nombre := range jugadoresClaro {
+					nombresClaro[strings.TrimSpace(nombre)] = true
+				}
+
+				for _, jugador := range *lista {
+					if nombresClaro[jugador.Nombre] {
+						equipoClaro = append(equipoClaro, jugador)
+					} else {
+						equipoOscuro = append(equipoOscuro, jugador)
+					}
+				}
+
+				partido.Equipos.Oscuro = equipoOscuro
+				partido.Equipos.Claro = equipoClaro
+
+				msg.Text = "Equipo Oscuro: " + imprimir_nombres(partido.Equipos.Oscuro) + "\nEquipo Claro: " + imprimir_nombres(partido.Equipos.Claro)
+			} else {
+				msg.Text = "Por favor, proporciona los nombres de los jugadores después del comando /equipoClaro separados por comas."
+			}
+		}
+	//----------------------
 	case "crearpartido":
 		if partido.Creado {
 			msg.Text = "Ya hay un partido creado. No puedes crear otro partido."
