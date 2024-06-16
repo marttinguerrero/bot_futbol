@@ -58,7 +58,7 @@ func run() {
 	lista := []Jugador{}
 	partido := Partido{}
 
-	go verificarYEliminarPartidoVencido(bot, &partido)
+	go verificarYEliminarPartidoVencido(bot, &partido, &lista)
 
 	for update := range updates {
 		if update.Message != nil {
@@ -130,22 +130,24 @@ func validarJugadoresAnotados(lista []Jugador, nombres []string) (bool, []string
 	return len(jugadoresNoAnotados) == 0, jugadoresNoAnotados
 }
 
-func verificarYEliminarPartidoVencido(bot *tgbotapi.BotAPI, partido *Partido) {
+func verificarYEliminarPartidoVencido(bot *tgbotapi.BotAPI, partido *Partido, lista *[]Jugador) {
 	for {
 		hora_actual := obtener_numeros(time.Now())
 		hora_partido := obtener_numeros(partido.DiaHora)
 		if partido.Creado && hora_partido < hora_actual {
 			chatID := partido.ChatID
 			fmt.Println("Verificación: Eliminando partido vencido")
-			eliminar_partido(bot, chatID, partido)
+			eliminar_partido(bot, chatID, partido, lista)
 		}
 	}
 }
 
-func eliminar_partido(bot *tgbotapi.BotAPI, chatID int64, partido *Partido) {
+func eliminar_partido(bot *tgbotapi.BotAPI, chatID int64, partido *Partido, lista *[]Jugador) {
 	partido.Creado = false
 	partido.Paso = 0
-
+	partido.Equipos.Oscuro = nil
+	partido.Equipos.Claro = nil
+	*lista = (*lista)[:0]
 	msg := tgbotapi.NewMessage(chatID, "El partido ha finalizado, /crearpartido para crear el siguiente")
 	_, err := bot.Send(msg)
 	if err != nil {
