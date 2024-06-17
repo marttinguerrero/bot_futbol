@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
 	"strings"
 	"time"
@@ -68,6 +69,70 @@ func run() {
 	}
 }
 
+/*
+	func crearEquiposAlAzar(lista []Jugador, cantidadPorEquipo int) (Equipos, error) {
+	    equipoOscuro := []Jugador{}
+	    equipoClaro := []Jugador{}
+
+	    // Verificar si hay suficientes jugadores
+	    switch cantidadPorEquipo {
+	    case 5:
+	        if len(lista) < 10 {
+	            return Equipos{}, fmt.Errorf("se necesitan al menos 10 jugadores inscritos para formar equipos de Fútbol 5")
+	        }
+	    case 7:
+	        if len(lista) < 14 {
+	            return Equipos{}, fmt.Errorf("se necesitan al menos 14 jugadores inscritos para formar equipos de Fútbol 7")
+	        }
+	    case 8:
+	        if len(lista) < 16 {
+	            return Equipos{}, fmt.Errorf("se necesitan al menos 16 jugadores inscritos para formar equipos de Fútbol 8")
+	        }
+	    default:
+	        return Equipos{}, fmt.Errorf("tamaño de equipo no válido")
+	    }
+
+	    // Inicializar la fuente de números aleatorios
+	    rand.Seed(time.Now().UnixNano())
+
+	    // Crear índices aleatorios para seleccionar jugadores al azar
+	    indicesAleatorios := rand.Perm(len(lista))
+	    for i, idx := range indicesAleatorios {
+	        jugador := lista[idx]
+	        if i < cantidadPorEquipo {
+	            equipoOscuro = append(equipoOscuro, jugador)
+	        } else if i < 2*cantidadPorEquipo {
+	            equipoClaro = append(equipoClaro, jugador)
+	        }
+	    }
+
+	    return Equipos{Oscuro: equipoOscuro, Claro: equipoClaro}, nil
+	}
+
+funcion que no se logro probar
+*/
+func crearEquiposAlAzar(lista []Jugador) (Equipos, error) {
+	equipoOscuro := []Jugador{}
+	equipoClaro := []Jugador{}
+
+	// Verificar si hay suficientes jugadores
+	if len(lista) < 10 {
+		return Equipos{}, fmt.Errorf("no hay suficientes jugadores para crear equipos al azar (se necesitan al menos 10 jugadores)")
+	}
+
+	// Crear índices aleatorios para seleccionar jugadores al azar
+	indicesAleatorios := rand.Perm(len(lista))
+	for i, idx := range indicesAleatorios {
+		jugador := lista[idx]
+		if i < 5 {
+			equipoOscuro = append(equipoOscuro, jugador)
+		} else {
+			equipoClaro = append(equipoClaro, jugador)
+		}
+	}
+
+	return Equipos{Oscuro: equipoOscuro, Claro: equipoClaro}, nil
+}
 func asignarEquipos(lista []Jugador, jugadoresOscuro []string) (Equipos, error) {
 	equipoOscuro := []Jugador{}
 	equipoClaro := []Jugador{}
@@ -361,6 +426,23 @@ func manejo_comandos(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]Juga
 		}
 	case "estado":
 		msg.Text = "Estoy funcionando"
+	case "crearEquiposAlAzar":
+		if len(*lista) < 10 {
+			msg.Text = "No hay suficientes jugadores para crear equipos al azar (se necesitan al menos 10 jugadores)."
+			break
+		}
+
+		equipos, err := crearEquiposAlAzar(*lista)
+		if err != nil {
+			msg.Text = err.Error()
+			break
+		}
+
+		partido.Equipos.Oscuro = equipos.Oscuro
+		partido.Equipos.Claro = equipos.Claro
+
+		msg.Text = "Equipos creados al azar:\nEquipo Oscuro: " + imprimir_nombres(equipos.Oscuro) + "\nEquipo Claro: " + imprimir_nombres(equipos.Claro)
+
 	default:
 		msg.Text = "No entiendo ese comando"
 	}
