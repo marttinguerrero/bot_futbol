@@ -98,13 +98,21 @@ func manejo_mensaje(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]Jugad
 	} else if update.Message.ReplyToMessage != nil {
 		switch partido.Paso {
 		case 1:
-			manejo_ubicacion(bot, update, partido, lista)
+			manejo_ubicacion(bot, update, partido)
 		case 2:
-			manejo_fecha(bot, update, partido, lista)
+			manejo_fecha(bot, update, partido)
 		}
 	}
 }
 
+func jugadorEnLista(lista []Jugador, nombre string) bool {
+	for _, jugador := range lista {
+		if jugador.Nombre == nombre {
+			return true
+		}
+	}
+	return false
+}
 func manejo_comandos(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]Jugador, partido *Partido) {
 	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
 	switch update.Message.Command() {
@@ -112,9 +120,15 @@ func manejo_comandos(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]Juga
 		if !partido.Creado {
 			msg.Text = "Primero debes crear un partido con el comando /crearpartido"
 		} else {
-			*lista = append(*lista, Jugador{Nombre: update.Message.From.FirstName, Pago: false})
-			msg.Text = "Jugadores que suman al partido por ahora: " + imprimir_nombres(*lista)
+			if !jugadorEnLista(*lista, update.Message.From.FirstName) {
+				*lista = append(*lista, Jugador{Nombre: update.Message.From.FirstName, Pago: false})
+				msg.Text = "Jugadores que suman al partido por ahora: " + imprimir_nombres(*lista)
+			} else {
+				msg.Text = "El jugador ya fue agregado a la lista "
+			}
+
 		}
+
 	case "sumoa":
 		if !partido.Creado {
 			msg.Text = "Primero debes crear un partido con el comando /crearpartido"
@@ -122,8 +136,12 @@ func manejo_comandos(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]Juga
 			parts := strings.SplitN(update.Message.Text, " ", 2)
 			if len(parts) == 2 {
 				nombreAmigo := parts[1]
-				*lista = append(*lista, Jugador{Nombre: nombreAmigo, Pago: false})
-				msg.Text = "Se agregó a " + nombreAmigo + " a la lista de jugadores.\nJugadores que suman al partido por ahora: " + imprimir_nombres(*lista)
+				if !jugadorEnLista(*lista, nombreAmigo) {
+					*lista = append(*lista, Jugador{Nombre: nombreAmigo, Pago: false})
+					msg.Text = "Se agregó a " + nombreAmigo + " a la lista de jugadores.\nJugadores que suman al partido por ahora: " + imprimir_nombres(*lista)
+				} else {
+					msg.Text = "El jugador ya fue agregado a la lista "
+				}
 			} else {
 				msg.Text = "Por favor, proporciona un nombre después del comando /sumoa."
 			}
@@ -175,14 +193,14 @@ func manejo_comandos(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]Juga
 	}
 }
 
-func manejo_ubicacion(bot *tgbotapi.BotAPI, update tgbotapi.Update, partido *Partido, lista *[]Jugador) {
+func manejo_ubicacion(bot *tgbotapi.BotAPI, update tgbotapi.Update, partido *Partido) {
 	partido.Ubicacion = update.Message.Text
 	partido.Paso = 2
 	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "¿Qué día y a qué hora? (formato: DD-MM-YYYY HH:MM)")
 	msg.ReplyMarkup = tgbotapi.ForceReply{ForceReply: true}
 	bot.Send(msg)
 }
-func manejo_fecha(bot *tgbotapi.BotAPI, update tgbotapi.Update, partido *Partido, lista *[]Jugador) {
+func manejo_fecha(bot *tgbotapi.BotAPI, update tgbotapi.Update, partido *Partido) {
 	diaHora, err := time.Parse(layout, update.Message.Text)
 	if err != nil {
 		msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Formato de fecha y hora incorrecto. Por favor, usa el formato DD-MM-YYYY HH:MM.")
