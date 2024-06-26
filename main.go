@@ -12,6 +12,11 @@ import (
 
 const layout = "02-01-2006 15:04"
 
+type Equipos struct {
+	Oscuro []Jugador
+	Claro  []Jugador
+}
+
 type Partido struct {
 	ChatID    int64
 	Cancha    string
@@ -20,6 +25,7 @@ type Partido struct {
 	Ubicacion string
 	Creado    bool
 	Paso      int
+	Equipos   Equipos
 }
 
 type Jugador struct {
@@ -61,6 +67,92 @@ func run() {
 		manejo_update(bot, update, &lista, &partido)
 	}
 }
+
+// func crearEquiposAlAzar(lista []Jugador) (Equipos, string) {
+// 	cantidadJugadores := len(lista)
+// 	var cantidadPorEquipo int
+
+// 	switch cantidadJugadores {
+// 	case 10:
+// 		cantidadPorEquipo = 5
+// 	case 14:
+// 		cantidadPorEquipo = 7
+// 	case 16:
+// 		cantidadPorEquipo = 8
+// 	default:
+// 		return Equipos{}, "La cantidad de jugadores no es válida. Debe ser exactamente 10, 14 o 16 jugadores."
+// 	}
+// 	rand.Seed(time.Now().UnixNano())
+// 	rand.Shuffle(cantidadJugadores, func(i, j int) { lista[i], lista[j] = lista[j], lista[i] })
+
+// 	equipoOscuro := lista[:cantidadPorEquipo]
+// 	equipoClaro := lista[cantidadPorEquipo : cantidadPorEquipo*2]
+
+// 	return Equipos{Oscuro: equipoOscuro, Claro: equipoClaro}, ""
+// }
+
+// // func asignarEquipos(lista []Jugador, jugadoresOscuro []string) (Equipos, error) {
+// // 	equipoOscuro := []Jugador{}
+// // 	equipoClaro := []Jugador{}
+// // 	nombresOscuro := make(map[string]bool)
+
+// // 	for _, nombre := range jugadoresOscuro {
+// // 		nombresOscuro[strings.TrimSpace(nombre)] = true
+// // 	}
+
+// // 	for _, jugador := range lista {
+// // 		if nombresOscuro[jugador.Nombre] {
+// // 			equipoOscuro = append(equipoOscuro, jugador)
+// // 		} else {
+// // 			equipoClaro = append(equipoClaro, jugador)
+// // 		}
+// // 	}
+
+// // 	if len(equipoOscuro) != 5 || len(equipoClaro) != 5 {
+// // 		return Equipos{}, fmt.Errorf("los equipos deben tener exactamente 5 jugadores cada uno")
+// // 	}
+
+// // 	return Equipos{Oscuro: equipoOscuro, Claro: equipoClaro}, nil
+// // }
+
+// func validarCantidadJugadores(cancha string, cantidad int) (mensajeError string) {
+// 	switch cancha {
+// 	case "Fútbol 5":
+// 		if cantidad != 5 {
+// 			mensajeError = "Para Fútbol 5 se necesitan exactamente 5 jugadores en cada equipo."
+// 		}
+// 	case "Fútbol 7":
+// 		if cantidad != 7 {
+// 			mensajeError = "Para Fútbol 7 se necesitan exactamente 7 jugadores en cada equipo."
+// 		}
+// 	case "Fútbol 8":
+// 		if cantidad != 8 {
+// 			mensajeError = "Para Fútbol 8 se necesitan exactamente 8 jugadores en cada equipo."
+// 		}
+
+// 	default:
+// 		mensajeError = "No se reconoce el tipo de cancha especificado."
+// 	}
+// 	return mensajeError
+// }
+
+// func validarJugadoresAnotados(lista []Jugador, nombres []string) (bool, []string) {
+// 	jugadoresAnotados := make(map[string]bool)
+// 	for _, jugador := range lista {
+// 		jugadoresAnotados[jugador.Nombre] = true
+// 	}
+
+// 	jugadoresNoAnotados := []string{}
+// 	for _, nombre := range nombres {
+// 		nombre = strings.TrimSpace(nombre)
+// 		if !jugadoresAnotados[nombre] {
+// 			jugadoresNoAnotados = append(jugadoresNoAnotados, nombre)
+// 		}
+// 	}
+
+// 	return len(jugadoresNoAnotados) == 0, jugadoresNoAnotados
+// }
+
 func verificarYEliminarPartidoVencido(bot *tgbotapi.BotAPI, partido *Partido) {
 	for {
 		hora_actual := obtener_numeros(time.Now())
@@ -113,6 +205,26 @@ func jugadorEnLista(lista []Jugador, nombre string) bool {
 	}
 	return false
 }
+
+// func chequear_sumar(partido *Partido, lista *[]Jugador) bool {
+// 	if partido.Cancha == "Fútbol 5" {
+// 		if len(*lista) >= 10 {
+// 			return false
+// 		}
+
+// 	} else if partido.Cancha == "Fútbol 7" {
+// 		if len(*lista) < 14 {
+// 			return false
+// 		}
+// 	} else if partido.Cancha == "Fútbol 8" {
+// 		if len(*lista) < 16 {
+// 			return false
+// 		}
+// 	}
+// 	return true
+
+// }
+
 func manejo_comandos(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]Jugador, partido *Partido) {
 	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
 	switch update.Message.Command() {
@@ -133,6 +245,10 @@ func manejo_comandos(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]Juga
 		if !partido.Creado {
 			msg.Text = "Primero debes crear un partido con el comando /crearpartido"
 		} else {
+			// if !chequear_sumar(partido, lista) {
+			// 	msg.Text = "Se llego a la cantidad maxima de jugadores para el partido."
+			// 	break
+			// }
 			parts := strings.SplitN(update.Message.Text, " ", 2)
 			if len(parts) == 2 {
 				nombreAmigo := parts[1]
@@ -168,6 +284,128 @@ func manejo_comandos(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]Juga
 		} else {
 			msg.Text = "Los jugadores que van al partido por ahora son: " + imprimir_nombres(*lista)
 		}
+	// case "equipoOscuro":
+	// 	if !partido.Creado {
+	// 		msg.Text = "Primero debes crear un partido con el comando /crearpartido"
+	// 	} else {
+	// 		partes := strings.SplitN(update.Message.Text, ":", 2)
+	// 		if len(partes) == 2 {
+	// 			jugadoresOscuro := strings.Split(partes[1], ",")
+	// 			cantidadJugadores := len(jugadoresOscuro)
+	// 			equipoOscuro := []Jugador{}
+	// 			equipoClaro := []Jugador{}
+
+	// 			mensajeError := validarCantidadJugadores(partido.Cancha, cantidadJugadores)
+	// 			if mensajeError != "" {
+	// 				msg.Text = mensajeError
+	// 				break
+	// 			}
+
+	// 			validado, jugadoresNoAnotados := validarJugadoresAnotados(*lista, jugadoresOscuro)
+	// 			if !validado {
+	// 				msg.Text = fmt.Sprintf("Los siguientes jugadores no están anotados para el partido: %s", strings.Join(jugadoresNoAnotados, ", "))
+	// 				break
+	// 			}
+
+	// 			for _, nombre := range jugadoresOscuro {
+	// 				nombre = strings.TrimSpace(nombre)
+	// 				for _, jugador := range *lista {
+	// 					if jugador.Nombre == nombre {
+	// 						equipoOscuro = append(equipoOscuro, jugador)
+	// 						break
+	// 					}
+	// 				}
+	// 			}
+
+	// 			for _, jugador := range *lista {
+	// 				encontrado := false
+	// 				for _, nombre := range jugadoresOscuro {
+	// 					if strings.TrimSpace(nombre) == jugador.Nombre {
+	// 						encontrado = true
+	// 						break
+	// 					}
+	// 				}
+	// 				if !encontrado {
+	// 					equipoClaro = append(equipoClaro, jugador)
+	// 				}
+	// 			}
+
+	// 			partido.Equipos.Oscuro = equipoOscuro
+	// 			partido.Equipos.Claro = equipoClaro
+
+	// 			msg.Text = "Equipo Oscuro: " + imprimir_nombres(partido.Equipos.Oscuro) + "\nEquipo Claro: " + imprimir_nombres(partido.Equipos.Claro)
+	// 		} else {
+	// 			msg.Text = "Por favor, proporciona los nombres de los jugadores después del comando /equipoOscuro separados por comas."
+	// 		}
+	// 	}
+
+	// case "equipoClaro":
+	// 	if !partido.Creado {
+	// 		msg.Text = "Primero debes crear un partido con el comando /crearpartido"
+	// 	} else {
+	// 		partes := strings.SplitN(update.Message.Text, ":", 2)
+	// 		if len(partes) == 2 {
+	// 			jugadoresClaro := strings.Split(partes[1], ",")
+	// 			cantidadJugadores := len(jugadoresClaro)
+	// 			equipoOscuro := []Jugador{}
+	// 			equipoClaro := []Jugador{}
+
+	// 			mensajeError := validarCantidadJugadores(partido.Cancha, cantidadJugadores)
+	// 			if mensajeError != "" {
+	// 				msg.Text = mensajeError
+	// 				break
+	// 			}
+
+	// 			validado, jugadoresNoAnotados := validarJugadoresAnotados(*lista, jugadoresClaro)
+	// 			if !validado {
+	// 				msg.Text = fmt.Sprintf("Los siguientes jugadores no están anotados para el partido: %s", strings.Join(jugadoresNoAnotados, ", "))
+	// 				break
+	// 			}
+
+	// 			for _, nombre := range jugadoresClaro {
+	// 				nombre = strings.TrimSpace(nombre)
+	// 				for _, jugador := range *lista {
+	// 					if jugador.Nombre == nombre {
+	// 						equipoClaro = append(equipoClaro, jugador)
+	// 						break
+	// 					}
+	// 				}
+	// 			}
+
+	// 			for _, jugador := range *lista {
+	// 				encontrado := false
+	// 				for _, nombre := range jugadoresClaro {
+	// 					if strings.TrimSpace(nombre) == jugador.Nombre {
+	// 						encontrado = true
+	// 						break
+	// 					}
+	// 				}
+	// 				if !encontrado {
+	// 					equipoOscuro = append(equipoOscuro, jugador)
+	// 				}
+	// 			}
+
+	// 			partido.Equipos.Oscuro = equipoOscuro
+	// 			partido.Equipos.Claro = equipoClaro
+
+	// 			msg.Text = "Equipo Claro: " + imprimir_nombres(partido.Equipos.Claro) + "\nEquipo Oscuro: " + imprimir_nombres(partido.Equipos.Oscuro)
+	// 		} else {
+	// 			msg.Text = "Por favor, proporciona los nombres de los jugadores después del comando /equipoClaro separados por comas."
+	// 		}
+	// 	}
+
+	// case "reiniciarEquipos":
+	// 	if !partido.Creado {
+	// 		msg.Text = "Primero debes crear un partido con el comando /crearpartido"
+	// 	} else {
+	// 		partido.Equipos.Oscuro = nil
+	// 		partido.Equipos.Claro = nil
+	// 		msg.Text = "Se han reiniciado los equipos. Puedes volver a asignarlos con los comandos /equipoOscuro y /equipoClaro."
+	// 	}
+
+	// case "verEquipos":
+	// 	msg.Text = "Equipo Oscuro: " + imprimir_nombres(partido.Equipos.Oscuro) + "\nEquipo Claro: " + imprimir_nombres(partido.Equipos.Claro)
+
 	case "crearpartido":
 		if partido.Creado {
 			msg.Text = "Ya hay un partido creado. No puedes crear otro partido."
@@ -184,6 +422,39 @@ func manejo_comandos(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]Juga
 		}
 	case "estado":
 		msg.Text = "Estoy funcionando"
+	// case "crearEquiposAlAzar":
+	// 	cantidadJugadores := len(*lista)
+	// 	if cantidadJugadores != 10 && cantidadJugadores != 14 && cantidadJugadores != 16 {
+	// 		msg.Text = "La cantidad de jugadores no es válida. Debe ser exactamente 10, 14 o 16 jugadores."
+	// 		break
+	// 	}
+
+	// 	equipos, mensajeError := crearEquiposAlAzar(*lista)
+	// 	if mensajeError != "" {
+	// 		msg.Text = mensajeError
+	// 	} else {
+	// 		partido.Equipos = equipos
+	// 		msg.Text = "Equipos creados al azar:\n" +
+	// 			"Equipo Oscuro: " + imprimir_nombres(equipos.Oscuro) + "\n" +
+	// 			"Equipo Claro: " + imprimir_nombres(equipos.Claro)
+	// 	}
+	// case "ayuda":
+	// 	msg.Text = "ℹ️ *Comandos disponibles:*\n\n" +
+	// 		"🙋 /sumo - Añadir jugador al partido\n" +
+	// 		"🙋‍♂️ /sumoa [nombre] - Añadir amigo al partido\n" +
+	// 		"🚶 /bajar - Quitar jugador del partido\n" +
+	// 		"🚶‍♂️ /bajoa [nombre] - Quitar amigo del partido\n" +
+	// 		"👥 /jugadores - Ver jugadores del partido\n" +
+	// 		"⚫ /equipoOscuro:[jugador1,jugador2,...] - Asignar equipo oscuro\n" +
+	// 		"⚪ /equipoClaro:[jugador1,jugador2,...] - Asignar equipo claro\n" +
+	// 		"🔄 /reiniciarEquipos - Reiniciar asignación de equipos\n" +
+	// 		"👀 /verEquipos - Ver equipos asignados\n" +
+	// 		"🎮 /crearpartido - Crear un nuevo partido\n" +
+	// 		"ℹ️ /partido - Ver detalles del partido\n" +
+	// 		"🔍 /estado - Estado del bot\n" +
+	// 		"🎲 /crearEquiposAlAzar - Crear equipos al azar\n\n" +
+	// 		"."
+	// 	msg.ParseMode = "markdown"
 	default:
 		msg.Text = "No entiendo ese comando"
 	}
