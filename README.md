@@ -1,4 +1,6 @@
 # bot_futbol
-Para poder correr  nuestro bot de telegram, lo primero que hay que hacer es crear un grupo en telegram y agregar al bot llamado: partido_futbol, su nombre de usuario es @partido_futbol_bot.
-Luego desde el editor de texto se debe correr la siguiente linea de código que es para vincular el token del bot con el código: export TELGRAM_APITOKEN = 7425375505:AAH_F7LyrzfM-UPoLsjxCWxg3ZP6EJvdElQ
-Una vez hechos estos dos pasos, ya se puede correr el prorgama y el bot ya va a estar funcionando. Para ver todos los comandos posibles se puede usar el comando /ayuda, que manda un listado de todos los comandos. El primero que se debe usar es el de /crearpartido, ya que al usar los demás se va a lanzar un mensaje de que se debe crear un partido antes de poder usarlos.
+1.Para poder correr  nuestro bot de telegram, lo primero que hay que hacer es crear un grupo en telegram y agregar al bot llamado: partido_futbol, su nombre de usuario es @partido_futbol_bot.
+
+2.Luego desde el editor de texto se debe correr la siguiente linea de código que es para vincular el token del bot con el código: export TELGRAM_APITOKEN = 7425375505:AAH_F7LyrzfM-UPoLsjxCWxg3ZP6EJvdElQ
+
+3.Una vez hechos estos dos pasos, ya se puede correr el prorgama y el bot ya va a estar funcionando. Para ver todos los comandos posibles se puede usar el comando /ayuda, que manda un listado de todos los comandos. El primero que se debe usar es el de /crearpartido, ya que al usar los demás se va a lanzar un mensaje de que se debe crear un partido antes de poder usarlos.
