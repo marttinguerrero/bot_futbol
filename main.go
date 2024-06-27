@@ -91,6 +91,47 @@ func crearEquiposAlAzar(lista []Jugador) (Equipos, string) {
 
 	return Equipos{Oscuro: equipoOscuro, Claro: equipoClaro}, ""
 }
+func asignarEquipos(partido *Partido, lista *[]Jugador, jugadoresInput []string, equipoPrincipal *[]Jugador, equipoOpuesto *[]Jugador, nombreEquipoPrincipal, nombreEquipoOpuesto string) string {
+	cantidadJugadores := len(jugadoresInput)
+
+	mensajeError := validarCantidadJugadores(partido.Cancha, cantidadJugadores)
+	if mensajeError != "" {
+		return mensajeError
+	}
+
+	validado, jugadoresNoAnotados := validarJugadoresAnotados(*lista, jugadoresInput)
+	if !validado {
+		return fmt.Sprintf("Los siguientes jugadores no están anotados para el partido: %s", strings.Join(jugadoresNoAnotados, ", "))
+	}
+
+	*equipoPrincipal = []Jugador{}
+	*equipoOpuesto = []Jugador{}
+
+	for _, nombre := range jugadoresInput {
+		nombre = strings.TrimSpace(nombre)
+		for _, jugador := range *lista {
+			if jugador.Nombre == nombre {
+				*equipoPrincipal = append(*equipoPrincipal, jugador)
+				break
+			}
+		}
+	}
+
+	for _, jugador := range *lista {
+		encontrado := false
+		for _, nombre := range jugadoresInput {
+			if strings.TrimSpace(nombre) == jugador.Nombre {
+				encontrado = true
+				break
+			}
+		}
+		if !encontrado {
+			*equipoOpuesto = append(*equipoOpuesto, jugador)
+		}
+	}
+
+	return fmt.Sprintf("%s: %s\n%s: %s", nombreEquipoPrincipal, imprimir_nombres(*equipoPrincipal), nombreEquipoOpuesto, imprimir_nombres(*equipoOpuesto))
+}
 
 // func asignarEquipos(lista []Jugador, jugadoresOscuro []string) (Equipos, error) {
 // 	equipoOscuro := []Jugador{}
@@ -298,7 +339,6 @@ func manejo_comandos(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]Juga
 					*lista = append(*lista, Jugador{Nombre: nombreAmigo, Pago: false})
 					msg.Text = imprimir_jugadores(partido, lista)
 
-					// msg.Text = "Se agregó a " + nombreAmigo + " a la lista de jugadores.\nJugadores que suman al partido por ahora: " + imprimir_nombres(*lista)
 				} else {
 					msg.Text = "El jugador ya fue agregado a la lista "
 				}
@@ -335,49 +375,8 @@ func manejo_comandos(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]Juga
 			partes := strings.SplitN(update.Message.Text, ":", 2)
 			if len(partes) == 2 {
 				jugadoresOscuro := strings.Split(partes[1], ",")
-				cantidadJugadores := len(jugadoresOscuro)
-				equipoOscuro := []Jugador{}
-				equipoClaro := []Jugador{}
-
-				mensajeError := validarCantidadJugadores(partido.Cancha, cantidadJugadores)
-				if mensajeError != "" {
-					msg.Text = mensajeError
-					break
-				}
-
-				validado, jugadoresNoAnotados := validarJugadoresAnotados(*lista, jugadoresOscuro)
-				if !validado {
-					msg.Text = fmt.Sprintf("Los siguientes jugadores no están anotados para el partido: %s", strings.Join(jugadoresNoAnotados, ", "))
-					break
-				}
-
-				for _, nombre := range jugadoresOscuro {
-					nombre = strings.TrimSpace(nombre)
-					for _, jugador := range *lista {
-						if jugador.Nombre == nombre {
-							equipoOscuro = append(equipoOscuro, jugador)
-							break
-						}
-					}
-				}
-
-				for _, jugador := range *lista {
-					encontrado := false
-					for _, nombre := range jugadoresOscuro {
-						if strings.TrimSpace(nombre) == jugador.Nombre {
-							encontrado = true
-							break
-						}
-					}
-					if !encontrado {
-						equipoClaro = append(equipoClaro, jugador)
-					}
-				}
-
-				partido.Equipos.Oscuro = equipoOscuro
-				partido.Equipos.Claro = equipoClaro
-
-				msg.Text = "Equipo Oscuro: " + imprimir_nombres(partido.Equipos.Oscuro) + "\nEquipo Claro: " + imprimir_nombres(partido.Equipos.Claro)
+				resultado := asignarEquipos(partido, lista, jugadoresOscuro, &partido.Equipos.Oscuro, &partido.Equipos.Claro, "Equipo Oscuro", "Equipo Claro")
+				msg.Text = resultado
 			} else {
 				msg.Text = "Por favor, proporciona los nombres de los jugadores después del comando /equipoOscuro separados por comas."
 			}
@@ -390,49 +389,8 @@ func manejo_comandos(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]Juga
 			partes := strings.SplitN(update.Message.Text, ":", 2)
 			if len(partes) == 2 {
 				jugadoresClaro := strings.Split(partes[1], ",")
-				cantidadJugadores := len(jugadoresClaro)
-				equipoOscuro := []Jugador{}
-				equipoClaro := []Jugador{}
-
-				mensajeError := validarCantidadJugadores(partido.Cancha, cantidadJugadores)
-				if mensajeError != "" {
-					msg.Text = mensajeError
-					break
-				}
-
-				validado, jugadoresNoAnotados := validarJugadoresAnotados(*lista, jugadoresClaro)
-				if !validado {
-					msg.Text = fmt.Sprintf("Los siguientes jugadores no están anotados para el partido: %s", strings.Join(jugadoresNoAnotados, ", "))
-					break
-				}
-
-				for _, nombre := range jugadoresClaro {
-					nombre = strings.TrimSpace(nombre)
-					for _, jugador := range *lista {
-						if jugador.Nombre == nombre {
-							equipoClaro = append(equipoClaro, jugador)
-							break
-						}
-					}
-				}
-
-				for _, jugador := range *lista {
-					encontrado := false
-					for _, nombre := range jugadoresClaro {
-						if strings.TrimSpace(nombre) == jugador.Nombre {
-							encontrado = true
-							break
-						}
-					}
-					if !encontrado {
-						equipoOscuro = append(equipoOscuro, jugador)
-					}
-				}
-
-				partido.Equipos.Oscuro = equipoOscuro
-				partido.Equipos.Claro = equipoClaro
-
-				msg.Text = "Equipo Claro: " + imprimir_nombres(partido.Equipos.Claro) + "\nEquipo Oscuro: " + imprimir_nombres(partido.Equipos.Oscuro)
+				resultado := asignarEquipos(partido, lista, jugadoresClaro, &partido.Equipos.Claro, &partido.Equipos.Oscuro, "Equipo Claro", "Equipo Oscuro")
+				msg.Text = resultado
 			} else {
 				msg.Text = "Por favor, proporciona los nombres de los jugadores después del comando /equipoClaro separados por comas."
 			}
