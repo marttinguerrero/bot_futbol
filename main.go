@@ -22,7 +22,6 @@ type Partido struct {
 	ChatID    int64
 	Cancha    string
 	DiaHora   time.Time
-	Precio    string
 	Ubicacion string
 	Creado    bool
 	Paso      int
@@ -31,7 +30,6 @@ type Partido struct {
 
 type Jugador struct {
 	Nombre string
-	Pago   bool
 }
 
 func main() {
@@ -132,30 +130,6 @@ func asignarEquipos(partido *Partido, lista *[]Jugador, jugadoresInput []string,
 
 	return fmt.Sprintf("%s: %s\n%s: %s", nombreEquipoPrincipal, imprimir_nombres(*equipoPrincipal), nombreEquipoOpuesto, imprimir_nombres(*equipoOpuesto))
 }
-
-// func asignarEquipos(lista []Jugador, jugadoresOscuro []string) (Equipos, error) {
-// 	equipoOscuro := []Jugador{}
-// 	equipoClaro := []Jugador{}
-// 	nombresOscuro := make(map[string]bool)
-
-// 	for _, nombre := range jugadoresOscuro {
-// 		nombresOscuro[strings.TrimSpace(nombre)] = true
-// 	}
-
-// 	for _, jugador := range lista {
-// 		if nombresOscuro[jugador.Nombre] {
-// 			equipoOscuro = append(equipoOscuro, jugador)
-// 		} else {
-// 			equipoClaro = append(equipoClaro, jugador)
-// 		}
-// 	}
-
-// 	if len(equipoOscuro) != 5 || len(equipoClaro) != 5 {
-// 		return Equipos{}, fmt.Errorf("los equipos deben tener exactamente 5 jugadores cada uno")
-// 	}
-
-// 	return Equipos{Oscuro: equipoOscuro, Claro: equipoClaro}, nil
-// }
 
 func validarCantidadJugadores(cancha string, cantidad int) (mensajeError string) {
 	switch cancha {
@@ -316,7 +290,7 @@ func manejo_comandos(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]Juga
 				break
 			}
 			if !jugadorEnLista(*lista, update.Message.From.FirstName) {
-				*lista = append(*lista, Jugador{Nombre: update.Message.From.FirstName, Pago: false})
+				*lista = append(*lista, Jugador{Nombre: update.Message.From.FirstName})
 				msg.Text = imprimir_jugadores(partido, lista)
 			} else {
 				msg.Text = "El jugador ya fue agregado a la lista "
@@ -336,7 +310,7 @@ func manejo_comandos(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]Juga
 			if len(parts) == 2 {
 				nombreAmigo := parts[1]
 				if !jugadorEnLista(*lista, nombreAmigo) {
-					*lista = append(*lista, Jugador{Nombre: nombreAmigo, Pago: false})
+					*lista = append(*lista, Jugador{Nombre: nombreAmigo})
 					msg.Text = imprimir_jugadores(partido, lista)
 
 				} else {
@@ -366,7 +340,7 @@ func manejo_comandos(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]Juga
 		if !partido.Creado {
 			msg.Text = "Todavía no hay un partido creado"
 		} else {
-			msg.Text = "Los jugadores que van al partido por ahora son: " + imprimir_nombres(*lista)
+			msg.Text = imprimir_jugadores(partido, lista)
 		}
 	case "equipoOscuro":
 		if !partido.Creado {
@@ -420,7 +394,7 @@ func manejo_comandos(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]Juga
 		if !partido.Creado {
 			msg.Text = "Todavía no hay un partido creado"
 		} else {
-			msg.Text = "Cancha: " + partido.Cancha + "\nPrecio: " + partido.Precio + "$\nDía y hora: " + partido.DiaHora.Format(layout) + "\nUbicación: " + partido.Ubicacion + "\nJugadores: " + imprimir_nombres(*lista)
+			msg.Text = "Cancha: " + partido.Cancha + "$\nDía y hora: " + partido.DiaHora.Format(layout) + "\nUbicación: " + partido.Ubicacion + "\nJugadores: " + imprimir_nombres(*lista)
 		}
 	case "estado":
 		msg.Text = "Estoy funcionando"
@@ -503,17 +477,14 @@ func manejo_callback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery, lis
 	switch callback.Data {
 	case "cancha_futbol5":
 		partido.Cancha = "Fútbol 5"
-		partido.Precio = "10000"
 	case "cancha_futbol7":
 		partido.Cancha = "Fútbol 7"
-		partido.Precio = "14000"
 	case "cancha_futbol8":
 		partido.Cancha = "Fútbol 8"
-		partido.Precio = "16000"
 	}
 
 	partido.Creado = true
-	msg.Text = "Partido creado:\nCancha: " + partido.Cancha + "\nPrecio: " + partido.Precio + "$\nDía y hora: " + partido.DiaHora.Format(layout) + "\nUbicación: " + partido.Ubicacion + "\nJugadores: " + imprimir_nombres(*lista)
+	msg.Text = "Partido creado:\nCancha: " + partido.Cancha + "$\nDía y hora: " + partido.DiaHora.Format(layout) + "\nUbicación: " + partido.Ubicacion + "\nJugadores: " + imprimir_nombres(*lista)
 
 	if _, err := bot.Send(msg); err != nil {
 		log.Panic(err)
