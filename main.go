@@ -5,6 +5,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -25,6 +26,7 @@ type Partido struct {
 	Ubicacion string
 	Creado    bool
 	Paso      int
+	Alarmas   []int64
 	Equipos   Equipos
 }
 
@@ -57,7 +59,8 @@ func run() {
 	lista := []Jugador{}
 	partido := Partido{}
 
-	go verificarYEliminarPartidoVencido(bot, &partido)
+	go verificarYEliminarPartidoVencido(bot, &partido, &lista)
+	go programarAlarma(bot, &partido)
 
 	for update := range updates {
 		if update.Message != nil {
@@ -130,6 +133,28 @@ func asignarEquipos(partido *Partido, lista *[]Jugador, jugadoresInput []string,
 
 	return fmt.Sprintf("%s: %s\n%s: %s", nombreEquipoPrincipal, imprimir_nombres(*equipoPrincipal), nombreEquipoOpuesto, imprimir_nombres(*equipoOpuesto))
 }
+func programarAlarma(bot *tgbotapi.BotAPI, partido *Partido) {
+
+	for {
+
+		hora_actual := obtener_numeros_reales(time.Now())
+		hora_partido := obtener_numeros_reales(partido.DiaHora)
+
+		for _, alarma := range partido.Alarmas {
+
+			hora_alarma := int64(alarma) * 100
+
+			if hora_actual+(hora_alarma) == hora_partido {
+
+				chatID := partido.ChatID
+				msg := tgbotapi.NewMessage(chatID, fmt.Sprintf("¡Atención! El partido comienza en %d horas.", alarma))
+				bot.Send(msg)
+			}
+		}
+		time.Sleep(1 * time.Minute)
+	}
+
+}
 
 func validarCantidadJugadores(cancha string, cantidad int) (mensajeError string) {
 	switch cancha {
@@ -169,21 +194,25 @@ func validarJugadoresAnotados(lista []Jugador, nombres []string) (bool, []string
 	return len(jugadoresNoAnotados) == 0, jugadoresNoAnotados
 }
 
-func verificarYEliminarPartidoVencido(bot *tgbotapi.BotAPI, partido *Partido) {
+func verificarYEliminarPartidoVencido(bot *tgbotapi.BotAPI, partido *Partido, lista *[]Jugador) {
 	for {
 		hora_actual := obtener_numeros(time.Now())
 		hora_partido := obtener_numeros(partido.DiaHora)
 		if partido.Creado && hora_partido < hora_actual {
 			chatID := partido.ChatID
-			fmt.Println("Verificación: Eliminando partido vencido")
-			eliminar_partido(bot, chatID, partido)
+			eliminar_partido(bot, chatID, partido, lista)
 		}
 	}
 }
 
-func eliminar_partido(bot *tgbotapi.BotAPI, chatID int64, partido *Partido) {
+func eliminar_partido(bot *tgbotapi.BotAPI, chatID int64, partido *Partido, lista *[]Jugador) {
 	partido.Creado = false
 	partido.Paso = 0
+	partido.Equipos = Equipos{
+		Oscuro: []Jugador{},
+		Claro:  []Jugador{},
+	}
+	*lista = []Jugador{}
 
 	msg := tgbotapi.NewMessage(chatID, "El partido ha finalizado, /crearpartido para crear el siguiente")
 	_, err := bot.Send(msg)
@@ -191,7 +220,6 @@ func eliminar_partido(bot *tgbotapi.BotAPI, chatID int64, partido *Partido) {
 		fmt.Printf("Error al enviar mensaje: %v\n", err)
 	}
 }
-
 func manejo_update(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]Jugador, partido *Partido) {
 	if update.Message != nil {
 		manejo_mensaje(bot, update, lista, partido)
@@ -386,6 +414,7 @@ func manejo_comandos(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]Juga
 		if partido.Creado {
 			msg.Text = "Ya hay un partido creado. No puedes crear otro partido."
 		} else {
+
 			partido.Paso = 1
 			msg.Text = "¿Dónde querés jugar?"
 			msg.ReplyMarkup = tgbotapi.ForceReply{ForceReply: true}
@@ -394,7 +423,7 @@ func manejo_comandos(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]Juga
 		if !partido.Creado {
 			msg.Text = "Todavía no hay un partido creado"
 		} else {
-			msg.Text = "Cancha: " + partido.Cancha + "$\nDía y hora: " + partido.DiaHora.Format(layout) + "\nUbicación: " + partido.Ubicacion + "\nJugadores: " + imprimir_nombres(*lista)
+			msg.Text = "Cancha: " + partido.Cancha + "\nDía y hora: " + partido.DiaHora.Format(layout) + "\nUbicación: " + partido.Ubicacion + "\nJugadores: " + imprimir_nombres(*lista)
 		}
 	case "estado":
 		msg.Text = "Estoy funcionando"
@@ -413,6 +442,25 @@ func manejo_comandos(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]Juga
 			msg.Text = "Equipos creados al azar:\n" +
 				"Equipo Oscuro: " + imprimir_nombres(equipos.Oscuro) + "\n" +
 				"Equipo Claro: " + imprimir_nombres(equipos.Claro)
+		}
+	case "ponerAlarma":
+		if !partido.Creado {
+			msg.Text = "Primero debes crear un partido con el comando /crearpartido"
+		} else {
+			parts := strings.SplitN(update.Message.Text, ":", 2)
+			if len(parts) == 2 {
+				horaAlarmaStr := parts[1]
+				horaAlarma, err := strconv.ParseInt(horaAlarmaStr, 10, 64)
+				if err != nil {
+					msg.Text = "Error al parsear la hora de la alarma."
+					break
+				}
+				partido.Alarmas = append(partido.Alarmas, horaAlarma)
+				msg.Text = fmt.Sprintf("Alarma configurada para %d horas antes del partido.", horaAlarma)
+
+			} else {
+				msg.Text = "Por favor, proporciona la hora de la alarma después del comando /ponerAlarma."
+			}
 		}
 	case "ayuda":
 		msg.Text = "ℹ️ *Comandos disponibles:*\n\n" +
@@ -529,4 +577,38 @@ func obtener_numeros(hora time.Time) string {
 	}, cadenaHora)
 
 	return cadenaSoloNumeros
+}
+
+func obtener_numeros_reales(hora time.Time) int64 {
+	cadenaHora := hora.Format("02-01-2006 15:04:05")
+
+	cadenaSoloNumeros := strings.Map(func(r rune) rune {
+		if r >= '0' && r <= '9' {
+			return r
+		}
+		return -1
+	}, cadenaHora)
+
+	numero, err := strconv.ParseInt(cadenaSoloNumeros, 10, 64)
+	if err != nil {
+		fmt.Println("Error convirtiendo a int64:", err)
+		return 0 // O algún valor por defecto
+	}
+
+	numeroStr := strconv.FormatInt(numero, 10)
+	if len(numeroStr) > 6 {
+		numeroStr = numeroStr[len(numeroStr)-6:]
+	}
+
+	if len(numeroStr) > 4 {
+		numeroStr = numeroStr[:4]
+	}
+
+	resultado, err := strconv.ParseInt(numeroStr, 10, 64)
+	if err != nil {
+		fmt.Println("Error convirtiendo a int64:", err)
+		return 0 // O algún valor por defecto
+	}
+
+	return resultado
 }
