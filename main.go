@@ -532,7 +532,7 @@ func manejo_callback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery, lis
 	}
 
 	partido.Creado = true
-	msg.Text = "Partido creado:\nCancha: " + partido.Cancha + "$\nDía y hora: " + partido.DiaHora.Format(layout) + "\nUbicación: " + partido.Ubicacion + "\nJugadores: " + imprimir_nombres(*lista)
+	msg.Text = "Partido creado:\nCancha: " + partido.Cancha + "\nDía y hora: " + partido.DiaHora.Format(layout) + "\nUbicación: " + partido.Ubicacion + "\nJugadores: " + imprimir_nombres(*lista)
 
 	if _, err := bot.Send(msg); err != nil {
 		log.Panic(err)
