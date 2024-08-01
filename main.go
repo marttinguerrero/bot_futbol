@@ -77,6 +77,30 @@ func run() {
 	}
 }
 
+func asignarEquipos(lista []Jugador, jugadoresOscuro []string) (Equipos, error) {
+	equipoOscuro := []Jugador{}
+	equipoClaro := []Jugador{}
+	nombresOscuro := make(map[string]bool)
+
+	for _, nombre := range jugadoresOscuro {
+		nombresOscuro[strings.TrimSpace(nombre)] = true
+	}
+
+	for _, jugador := range lista {
+		if nombresOscuro[jugador.Nombre] {
+			equipoOscuro = append(equipoOscuro, jugador)
+		} else {
+			equipoClaro = append(equipoClaro, jugador)
+		}
+	}
+
+	if len(equipoOscuro) != 5 || len(equipoClaro) != 5 {
+		return Equipos{}, fmt.Errorf("los equipos deben tener exactamente 5 jugadores cada uno")
+	}
+
+	return Equipos{Oscuro: equipoOscuro, Claro: equipoClaro}, nil
+}
+
 func validarCantidadJugadores(cancha string, cantidad int) (mensajeError string) {
 	switch cancha {
 	case "Fútbol 5":
@@ -176,9 +200,9 @@ func manejo_mensaje(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]Jugad
 	} else if update.Message.ReplyToMessage != nil {
 		switch partido.Paso {
 		case 1:
-			manejo_ubicacion(bot, update, partido)
+			manejo_ubicacion(bot, update, partido, lista)
 		case 2:
-			manejo_fecha(bot, update, partido)
+			manejo_fecha(bot, update, partido, lista)
 		}
 	}
 }
@@ -399,14 +423,14 @@ func manejo_comandos(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]Juga
 	}
 }
 
-func manejo_ubicacion(bot *tgbotapi.BotAPI, update tgbotapi.Update, partido *Partido) {
+func manejo_ubicacion(bot *tgbotapi.BotAPI, update tgbotapi.Update, partido *Partido, lista *[]Jugador) {
 	partido.Ubicacion = update.Message.Text
 	partido.Paso = 2
 	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "¿Qué día y a qué hora? (formato: DD-MM-YYYY HH:MM)")
 	msg.ReplyMarkup = tgbotapi.ForceReply{ForceReply: true}
 	bot.Send(msg)
 }
-func manejo_fecha(bot *tgbotapi.BotAPI, update tgbotapi.Update, partido *Partido) {
+func manejo_fecha(bot *tgbotapi.BotAPI, update tgbotapi.Update, partido *Partido, lista *[]Jugador) {
 	diaHora, err := time.Parse(layout, update.Message.Text)
 	if err != nil {
 		msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Formato de fecha y hora incorrecto. Por favor, usa el formato DD-MM-YYYY HH:MM.")
