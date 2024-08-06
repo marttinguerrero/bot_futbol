@@ -539,7 +539,6 @@ func intercambiar(partido *Partido, pos1, pos2 int) string {
 		return "Posiciones fuera de rango"
 	}
 
-	// Intercambiar el jugador en la posición pos1 del equipo Claro con el jugador en la posición pos2 del equipo Oscuro
 	jugadorClaro := partido.Equipos.Claro[pos2-1]
 	jugadorOscuro := partido.Equipos.Oscuro[pos1-1]
 
