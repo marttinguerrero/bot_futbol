@@ -443,6 +443,23 @@ func manejo_comandos(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]Juga
 				"Equipo Oscuro: " + imprimir_nombres(equipos.Oscuro) + "\n" +
 				"Equipo Claro: " + imprimir_nombres(equipos.Claro)
 		}
+	case "intercambia":
+		if !partido.Creado {
+			msg.Text = "Primero debes crear un partido con el comando /crearpartido"
+		} else {
+			parts := strings.SplitN(update.Message.Text, " ", 3)
+			if len(parts) == 3 {
+				pos1, err1 := strconv.Atoi(parts[1])
+				pos2, err2 := strconv.Atoi(parts[2])
+				if err1 != nil || err2 != nil {
+					msg.Text = "Error al parsear las posiciones. Por favor, proporciona dos números."
+				} else {
+					msg.Text = intercambiar(partido, pos1, pos2)
+				}
+			} else {
+				msg.Text = "Por favor, proporciona dos posiciones después del comando /intercambia."
+			}
+		}
 	case "ponerAlarma":
 		if !partido.Creado {
 			msg.Text = "Primero debes crear un partido con el comando /crearpartido"
@@ -476,9 +493,11 @@ func manejo_comandos(bot *tgbotapi.BotAPI, update tgbotapi.Update, lista *[]Juga
 			"🎮 /crearpartido - Crear un nuevo partido\n" +
 			"ℹ️ /partido - Ver detalles del partido\n" +
 			"🔍 /estado - Estado del bot\n" +
+			"++ /intercambia - intercambia una persona de un equipo a otro(Nota: hacerlo de la siguiente forma /intercambia int int el primer (int) es para determinar el jugador a cambiar del equipo oscuro y el segundo (int) para determinar el jugador del equipo claro\n" +
 			"🎲 /crearEquiposAlAzar - Crear equipos al azar\n\n" +
 			"."
 		msg.ParseMode = "markdown"
+
 	default:
 		msg.Text = "No entiendo ese comando"
 	}
@@ -513,6 +532,22 @@ func manejo_fecha(bot *tgbotapi.BotAPI, update tgbotapi.Update, partido *Partido
 		),
 	)
 	bot.Send(msg)
+}
+
+func intercambiar(partido *Partido, pos1, pos2 int) string {
+	if pos1 < 1 || pos2 < 1 || pos1 > len(partido.Equipos.Claro) || pos2 > len(partido.Equipos.Oscuro) {
+		return "Posiciones fuera de rango"
+	}
+
+	// Intercambiar el jugador en la posición pos1 del equipo Claro con el jugador en la posición pos2 del equipo Oscuro
+	jugadorClaro := partido.Equipos.Claro[pos2-1]
+	jugadorOscuro := partido.Equipos.Oscuro[pos1-1]
+
+	partido.Equipos.Claro[pos2-1] = jugadorOscuro
+	partido.Equipos.Oscuro[pos1-1] = jugadorClaro
+
+	return fmt.Sprintf("Intercambio realizado:\nEquipo Oscuro: %s\nEquipo Claro: %s",
+		imprimir_nombres(partido.Equipos.Oscuro), imprimir_nombres(partido.Equipos.Claro))
 }
 
 func manejo_callback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery, lista *[]Jugador, partido *Partido) {
